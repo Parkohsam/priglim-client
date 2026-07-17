@@ -2,8 +2,17 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
+import { useMutation } from "@apollo/client/react";
+import { SYNC_USER } from "@/graphql/mutations";
+import Link from "next/link";
+
+const googleProvider = new GoogleAuthProvider();
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,6 +21,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [syncUser] = useMutation(SYNC_USER);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,6 +30,7 @@ export default function RegisterPage() {
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
+      await syncUser({ variables: { fullName } });
       router.push("/");
     } catch (err) {
       if (err instanceof Error) {
@@ -27,6 +38,26 @@ export default function RegisterPage() {
       } else {
         setError("Something went wrong. Please try again.");
       }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleGoogleRegister() {
+    setError("");
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      await syncUser({
+        variables: { fullName: result.user.displayName || "Priglim User" },
+      });
+      router.push("/");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? "Google sign-up failed. Please try again."
+          : "Something went wrong. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -97,6 +128,28 @@ export default function RegisterPage() {
           >
             {loading ? "Creating account..." : "Register"}
           </button>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="h-px bg-navy-deep/10 flex-1" />
+            <span className="text-xs text-navy-deep/40">OR</span>
+            <div className="h-px bg-navy-deep/10 flex-1" />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleGoogleRegister}
+            disabled={loading}
+            className="w-full border border-navy-deep/20 text-navy-deep font-medium rounded py-2.5 hover:bg-cream transition-colors disabled:opacity-50"
+          >
+            Continue with Google
+          </button>
+
+          <p className="text-sm text-navy-deep/60 mt-6 text-center">
+            Already have an account?{" "}
+            <Link href="/login" className="text-navy font-medium">
+              Log in
+            </Link>
+          </p>
         </div>
       </form>
     </div>
