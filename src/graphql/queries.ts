@@ -18,3 +18,13 @@ export const GET_PACKAGES = gql`
     }
   }
 `;
+export const GET_ME = gql`
+  query GetMe {
+    me {
+      id
+      fullName
+      email
+      role
+    }
+  }
+`;
