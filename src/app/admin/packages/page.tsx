@@ -191,39 +191,63 @@ function AdminPackagesContent() {
 
         {loading && <p className="text-navy-deep/60">Loading...</p>}
 
-        <div className="space-y-3">
-          {data?.packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between"
-            >
-              <div>
-                <p className="font-medium text-navy-deep">{pkg.title}</p>
-                <p className="text-sm text-navy-deep/60">
-                  {pkg.type.replace("_", " ")} · ₦{pkg.price.toLocaleString()} · {pkg.duration}
-                </p>
-              </div>
+        <div className="bg-white rounded-lg shadow-sm overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-navy-deep/10 text-left">
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Title</th>
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Type</th>
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Price</th>
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Duration</th>
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Status</th>
+                <th className="px-4 py-3 font-medium text-navy-deep/60">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data?.packages.map((pkg) => (
+                <tr key={pkg.id} className="border-b border-navy-deep/5 last:border-0">
+                  <td className="px-4 py-3 font-medium text-navy-deep whitespace-nowrap">
+                    {pkg.title}
+                  </td>
+                  <td className="px-4 py-3 text-navy-deep/70 capitalize whitespace-nowrap">
+                    {pkg.type.replace("_", " ")}
+                  </td>
+                  <td className="px-4 py-3 text-navy-deep/70 whitespace-nowrap">
+                    ₦{pkg.price.toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-navy-deep/70 whitespace-nowrap">
+                    {pkg.duration}
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={pkg.availabilityStatus}
+                      onChange={(e) => handleStatusChange(pkg.id, e.target.value)}
+                      className="text-sm border border-navy-deep/20 rounded px-2 py-1"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="open">Open</option>
+                      <option value="paused">Paused</option>
+                      <option value="closed">Closed</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleDelete(pkg.id)}
+                      className="text-red text-sm font-medium"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-              <div className="flex items-center gap-2">
-                <select
-                  value={pkg.availabilityStatus}
-                  onChange={(e) => handleStatusChange(pkg.id, e.target.value)}
-                  className="text-sm border border-navy-deep/20 rounded px-2 py-1"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="open">Open</option>
-                  <option value="paused">Paused</option>
-                  <option value="closed">Closed</option>
-                </select>
-                <button
-                  onClick={() => handleDelete(pkg.id)}
-                  className="text-red text-sm font-medium px-2"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+          {data?.packages.length === 0 && (
+            <p className="text-navy-deep/60 text-sm px-4 py-6">
+              No packages yet. Create one above.
+            </p>
+          )}
         </div>
       </div>
     </div>
