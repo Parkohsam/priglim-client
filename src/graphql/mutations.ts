@@ -34,3 +34,14 @@ export const DELETE_PACKAGE = gql`
     deletePackage(id: $id)
   }
 `;
+export const CREATE_BOOKING = gql`
+  mutation CreateBooking($input: CreateBookingInput!) {
+    createBooking(input: $input) {
+      id
+      numberOfPilgrims
+      totalAmount
+      status
+      paymentStatus
+    }
+  }
+`;

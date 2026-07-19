@@ -29,7 +29,7 @@ export default function LoginPage() {
 
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      // console.log("MY TOKEN:", await result.user.getIdToken());
+      console.log("MY TOKEN:", await result.user.getIdToken());
       await syncUser({
         variables: { fullName: result.user.displayName || "Priglim User" },
       });

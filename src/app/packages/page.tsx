@@ -3,6 +3,10 @@
 import { useQuery } from "@apollo/client/react";
 import { GET_PACKAGES } from "@/graphql/queries";
 import Link from "next/link";
+import { useMutation } from "@apollo/client/react";
+import { CREATE_BOOKING } from "@/graphql/mutations";
+import { useAuth } from "@/context/AuthContext";
+import { useState } from "react";
 
 interface Package {
   id: string;
