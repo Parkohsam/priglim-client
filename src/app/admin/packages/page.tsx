@@ -16,6 +16,29 @@ interface Package {
   availabilityStatus: string;
 }
 
+// Cloudinary — same unsigned direct-from-browser upload used for
+// bank transfer receipts. No backend involved for the upload itself.
+const CLOUDINARY_CLOUD_NAME = "dlcq2g3cu";
+const CLOUDINARY_UPLOAD_PRESET = "nszjzbjf";
+
+async function uploadImageToCloudinary(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+    { method: "POST", body: formData }
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to upload image. Please try again.");
+  }
+
+  const data = await response.json();
+  return data.secure_url;
+}
+
 function AdminPackagesContent() {
   const { data, loading, refetch } = useQuery<{ packages: Package[] }>(GET_PACKAGES);
   const [createPackage, { loading: creating }] = useMutation(CREATE_PACKAGE);
@@ -32,8 +55,26 @@ function AdminPackagesContent() {
     bookingCloseDate: "",
     departureDate: "",
     returnDate: "",
+    imageUrl: "",
   });
   const [error, setError] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setUploadingImage(true);
+    try {
+      const url = await uploadImageToCloudinary(file);
+      setForm((prev) => ({ ...prev, imageUrl: url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -42,9 +83,16 @@ function AdminPackagesContent() {
       await createPackage({
         variables: {
           input: {
-            ...form,
+            title: form.title,
+            type: form.type,
+            description: form.description,
             price: parseFloat(form.price),
-            images: [],
+            duration: form.duration,
+            bookingOpenDate: form.bookingOpenDate,
+            bookingCloseDate: form.bookingCloseDate,
+            departureDate: form.departureDate,
+            returnDate: form.returnDate,
+            images: form.imageUrl ? [form.imageUrl] : [],
             itinerary: [],
           },
         },
@@ -59,6 +107,7 @@ function AdminPackagesContent() {
         bookingCloseDate: "",
         departureDate: "",
         returnDate: "",
+        imageUrl: "",
       });
       refetch();
     } catch (err) {
@@ -73,8 +122,12 @@ function AdminPackagesContent() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this package permanently?")) return;
-    await deletePackage({ variables: { id } });
-    refetch();
+    try {
+      await deletePackage({ variables: { id } });
+      refetch();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete package.");
+    }
   }
 
   return (
@@ -135,6 +188,28 @@ function AdminPackagesContent() {
             rows={3}
           />
 
+          <label className="block text-xs text-navy-deep/60 mb-1">
+            Package image
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-2 text-sm"
+          />
+          {uploadingImage && (
+            <p className="text-xs text-navy-deep/50 mb-4">Uploading image...</p>
+          )}
+          {form.imageUrl && !uploadingImage && (
+            <div className="mb-4">
+              <img
+                src={form.imageUrl}
+                alt="Preview"
+                className="h-32 rounded border border-navy-deep/10 object-cover"
+              />
+            </div>
+          )}
+
           <div className="grid sm:grid-cols-2 gap-4 mb-6">
             <div>
               <label className="block text-xs text-navy-deep/60 mb-1">Booking Opens</label>
@@ -180,7 +255,7 @@ function AdminPackagesContent() {
 
           <button
             type="submit"
-            disabled={creating}
+            disabled={creating || uploadingImage}
             className="bg-navy hover:bg-navy-deep text-white font-medium rounded px-6 py-2.5 disabled:opacity-50"
           >
             {creating ? "Creating..." : "Create Package"}

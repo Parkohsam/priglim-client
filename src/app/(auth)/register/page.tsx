@@ -2,17 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import {createUserWithEmailAndPassword,signInWithPopup,GoogleAuthProvider,AuthError,} from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
 import { useMutation } from "@apollo/client/react";
 import { SYNC_USER } from "@/graphql/mutations";
 import Link from "next/link";
 
 const googleProvider = new GoogleAuthProvider();
+
+function getFirebaseErrorMessage(err: unknown): string {
+  const code = (err as AuthError)?.code;
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "That email is already registered. Try logging in instead.";
+    case "auth/weak-password":
+      return "Password should be at least 6 characters.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -26,18 +36,31 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    const trimmedName = fullName.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your full name.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      await syncUser({ variables: { fullName } });
-      router.push("/");
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Something went wrong. Please try again.");
+      try {
+        await syncUser({ variables: { fullName: trimmedName } });
+        router.push("/");
+      } catch {
+        // Firebase account was created successfully; the backend sync
+        // failed but will retry automatically on next login (see
+        // resolvers/userResolvers.js). Don't scare the user — just point
+        // them at login instead of showing a raw error.
+        setError(
+          "Account created! Please log in to finish setting up your account."
+        );
       }
+    } catch (err) {
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -48,16 +71,23 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      await syncUser({
-        variables: { fullName: result.user.displayName || "Priglim User" },
-      });
-      router.push("/");
+      try {
+        await syncUser({
+          variables: { fullName: result.user.displayName || "Priglim User" },
+        });
+        router.push("/");
+      } catch {
+        setError(
+          "Account created! Please log in to finish setting up your account."
+        );
+      }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? "Google sign-up failed. Please try again."
-          : "Something went wrong. Please try again."
-      );
+      const code = (err as AuthError)?.code;
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        // User closed the popup themselves.
+      } else {
+        setError("Google sign-up failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -80,11 +110,7 @@ export default function RegisterPage() {
           </p>
 
           {error && (
-            <p className="text-red text-sm mb-4 font-medium">
-              {error === "Firebase: Error (auth/email-already-in-use)."
-                ? "That email is already registered. Try logging in instead."
-                : error}
-            </p>
+            <p className="text-red text-sm mb-4 font-medium">{error}</p>
           )}
 
           <label className="block text-sm font-medium text-navy-deep mb-1">
@@ -94,6 +120,7 @@ export default function RegisterPage() {
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            autoComplete="name"
             required
             className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-4 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
           />
@@ -105,6 +132,7 @@ export default function RegisterPage() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
             required
             className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-4 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
           />
@@ -116,8 +144,9 @@ export default function RegisterPage() {
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
             required
-            minLength={6}
+            maxLength={8}
             className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-6 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
           />
 

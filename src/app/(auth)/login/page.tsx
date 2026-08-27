@@ -7,12 +7,29 @@ import {
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
+import { FirebaseError } from "firebase/app";
 import { auth } from "@/lib/firebaseClient";
 import { useMutation } from "@apollo/client/react";
 import { SYNC_USER } from "@/graphql/mutations";
 import Link from "next/link";
 
 const googleProvider = new GoogleAuthProvider();
+
+function getFirebaseErrorMessage(err: unknown): string {
+  const code = (err as FirebaseError)?.code;
+  switch (code) {
+    case "auth/invalid-credential":
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+      return "Incorrect email or password. Please try again.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait a moment and try again.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    default:
+      return "Something went wrong. Please try again.";
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,17 +46,27 @@ export default function LoginPage() {
 
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log("MY TOKEN:", await result.user.getIdToken());
-      await syncUser({
-        variables: { fullName: result.user.displayName || "Priglim User" },
-      });
-      router.push("/");
+      try {
+        const syncResult = await syncUser({
+          variables: { fullName: result.user.displayName || "Priglim User" },
+        });
+        const role = syncResult.data?.syncUser?.role;
+        if (role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
+      } catch {
+        // Signed in to Firebase but backend sync failed — the account
+        // isn't broken (syncUser retries on next successful call), but
+        // don't show a "wrong password" message for what's actually a
+        // backend hiccup.
+        setError(
+          "Signed in, but we couldn't finish loading your account. Please try again."
+        );
+      }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? "Incorrect email or password. Please try again."
-          : "Something went wrong. Please try again."
-      );
+      setError(getFirebaseErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -51,16 +78,28 @@ export default function LoginPage() {
 
     try {
       const result = await signInWithPopup(auth, googleProvider);
-      await syncUser({
-        variables: { fullName: result.user.displayName || "Priglim User" },
-      });
-      router.push("/");
+      try {
+        const syncResult = await syncUser({
+          variables: { fullName: result.user.displayName || "Priglim User" },
+        });
+        const role = syncResult.data?.syncUser?.role;
+        if (role === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
+      } catch {
+        setError(
+          "Signed in, but we couldn't finish loading your account. Please try again."
+        );
+      }
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? "Google sign-in failed. Please try again."
-          : "Something went wrong. Please try again."
-      );
+      const code = (err as FirebaseError)?.code;
+      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
+        // User closed the popup themselves — not an error worth showing.
+      } else {
+        setError("Google sign-in failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -91,6 +130,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
               required
               className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-4 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
             />
@@ -102,6 +142,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
               required
               className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-6 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
             />
