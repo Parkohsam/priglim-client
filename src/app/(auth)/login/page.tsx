@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -33,11 +33,21 @@ function getFirebaseErrorMessage(err: unknown): string {
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [syncUser] = useMutation(SYNC_USER);
+
+  function redirectAfterLogin(role: string | undefined) {
+    const redirectTo = searchParams.get("redirect");
+    if (redirectTo) {
+      router.push(redirectTo);
+      return;
+    }
+    router.push(role === "admin" ? "/admin" : "/");
+  }
 
   async function handleEmailLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -50,17 +60,8 @@ export default function LoginPage() {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
         });
-        const role = syncResult.data?.syncUser?.role;
-        if (role === "admin") {
-          router.push("/admin");
-        } else {
-          router.push("/");
-        }
+        redirectAfterLogin(syncResult.data?.syncUser?.role);
       } catch {
-        // Signed in to Firebase but backend sync failed — the account
-        // isn't broken (syncUser retries on next successful call), but
-        // don't show a "wrong password" message for what's actually a
-        // backend hiccup.
         setError(
           "Signed in, but we couldn't finish loading your account. Please try again."
         );
@@ -82,12 +83,7 @@ export default function LoginPage() {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
         });
-        const role = syncResult.data?.syncUser?.role;
-        if (role === "admin") {
-          router.push("/admin");
-        } else {
-          router.push("/");
-        }
+        redirectAfterLogin(syncResult.data?.syncUser?.role);
       } catch {
         setError(
           "Signed in, but we couldn't finish loading your account. Please try again."
@@ -95,8 +91,11 @@ export default function LoginPage() {
       }
     } catch (err) {
       const code = (err as FirebaseError)?.code;
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") {
-        // User closed the popup themselves — not an error worth showing.
+      if (
+        code === "auth/popup-closed-by-user" ||
+        code === "auth/cancelled-popup-request"
+      ) {
+        // ignored
       } else {
         setError("Google sign-in failed. Please try again.");
       }
@@ -144,8 +143,17 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-6 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
+              className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-2 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
             />
+
+            <div className="text-right mb-4">
+              <Link
+                href="/forgot-password"
+                className="text-sm text-navy font-medium hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
 
             <button
               type="submit"
