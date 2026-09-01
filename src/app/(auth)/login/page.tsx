@@ -77,8 +77,12 @@ export default function LoginPage() {
       try {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
-        }) as MutationResult;
-        redirectAfterLogin(syncResult.data?.syncUser?.role);
+        });
+        if (syncResult && syncResult.data && syncResult.data.syncUser) {
+          redirectAfterLogin(syncResult.data.syncUser.role);
+        } else {
+          setError("Failed to load account data. Please try again.");
+        }
       } catch {
         setError(
           "Signed in, but we couldn't finish loading your account. Please try again."
@@ -100,8 +104,12 @@ export default function LoginPage() {
       try {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
-        }) as MutationResult;
-        redirectAfterLogin(syncResult.data?.syncUser?.role);
+        });
+        if (syncResult && syncResult.data && syncResult.data.syncUser) {
+          redirectAfterLogin(syncResult.data.syncUser.role);
+        } else {
+          setError("Failed to load account data. Please try again.");
+        }
       } catch {
         setError(
           "Signed in, but we couldn't finish loading your account. Please try again."
