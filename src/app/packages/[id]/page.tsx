@@ -64,13 +64,32 @@ interface PackageDetail {
   itinerary: string[];
 }
 
-// Cloudinary — unsigned direct-from-browser upload. No backend involved,
-// no API secret needed here since the preset is configured as Unsigned
-// in the Cloudinary dashboard.
+interface PilgrimForm {
+  name: string;
+  phoneNumber: string;
+  hasPassport: boolean | null; // null = not yet chosen
+  passportImageUrl: string;
+  ninImageUrl: string;
+  stateOfOriginImageUrl: string;
+  declarationOfAgeImageUrl: string;
+}
+
+const EMPTY_PILGRIM: PilgrimForm = {
+  name: "",
+  phoneNumber: "",
+  hasPassport: null,
+  passportImageUrl: "",
+  ninImageUrl: "",
+  stateOfOriginImageUrl: "",
+  declarationOfAgeImageUrl: "",
+};
+
+// Cloudinary — unsigned direct-from-browser upload, same setup used
+// elsewhere in the app (bank transfer receipts, package images).
 const CLOUDINARY_CLOUD_NAME = "dlcq2g3cu";
 const CLOUDINARY_UPLOAD_PRESET = "nszjzbjf";
 
-async function uploadReceiptToCloudinary(file: File): Promise<string> {
+async function uploadToCloudinary(file: File): Promise<string> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
@@ -81,7 +100,7 @@ async function uploadReceiptToCloudinary(file: File): Promise<string> {
   );
 
   if (!response.ok) {
-    throw new Error("Failed to upload receipt. Please try again.");
+    throw new Error("Failed to upload image. Please try again.");
   }
 
   const data = await response.json();
@@ -95,6 +114,8 @@ function formatDate(dateStr: string) {
     year: "numeric",
   });
 }
+
+const PHONE_PATTERN = /^\d{11}$/;
 
 type BookingStep = "form" | "choosePayment" | "bankTransfer" | "submitted";
 
@@ -114,9 +135,8 @@ export default function PackageDetailPage() {
   const [step, setStep] = useState<BookingStep>("form");
   const [activeImage, setActiveImage] = useState(0);
   const [numberOfPilgrims, setNumberOfPilgrims] = useState(1);
-  const [pilgrims, setPilgrims] = useState([
-    { name: "", passportNumber: "", dateOfBirth: "" },
-  ]);
+  const [pilgrims, setPilgrims] = useState<PilgrimForm[]>([{ ...EMPTY_PILGRIM }]);
+  const [uploadingField, setUploadingField] = useState<string | null>(null); // e.g. "0-passport"
   const [bookingError, setBookingError] = useState("");
   const [newBookingId, setNewBookingId] = useState<string | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -128,16 +148,65 @@ export default function PackageDetailPage() {
     setPilgrims((prev) => {
       const updated = [...prev];
       while (updated.length < clamped) {
-        updated.push({ name: "", passportNumber: "", dateOfBirth: "" });
+        updated.push({ ...EMPTY_PILGRIM });
       }
       return updated.slice(0, clamped);
     });
   }
 
-  function updatePilgrim(index: number, field: string, value: string) {
+  function updatePilgrimField(index: number, field: keyof PilgrimForm, value: any) {
     setPilgrims((prev) =>
       prev.map((p, i) => (i === index ? { ...p, [field]: value } : p))
     );
+  }
+
+  function handlePhoneChange(index: number, raw: string) {
+    const digitsOnly = raw.replace(/\D/g, "").slice(0, 11);
+    updatePilgrimField(index, "phoneNumber", digitsOnly);
+  }
+
+  async function handleDocumentUpload(
+    index: number,
+    field: "passportImageUrl" | "ninImageUrl" | "stateOfOriginImageUrl" | "declarationOfAgeImageUrl",
+    file: File | undefined
+  ) {
+    if (!file) return;
+    const key = `${index}-${field}`;
+    setUploadingField(key);
+    setBookingError("");
+    try {
+      const url = await uploadToCloudinary(file);
+      updatePilgrimField(index, field, url);
+    } catch (err) {
+      setBookingError(
+        err instanceof Error ? err.message : "Failed to upload document."
+      );
+    } finally {
+      setUploadingField(null);
+    }
+  }
+
+  function validatePilgrims(): string | null {
+    for (let i = 0; i < pilgrims.length; i++) {
+      const p = pilgrims[i];
+      const label = `Pilgrim ${i + 1}`;
+
+      if (!p.name.trim()) return `${label}: full name is required.`;
+      if (!PHONE_PATTERN.test(p.phoneNumber)) {
+        return `${label}: phone number must be exactly 11 digits.`;
+      }
+      if (p.hasPassport === null) {
+        return `${label}: please select whether they have an international passport.`;
+      }
+      if (p.hasPassport) {
+        if (!p.passportImageUrl) return `${label}: please upload the passport data page image.`;
+      } else {
+        if (!p.ninImageUrl) return `${label}: please upload the NIN image.`;
+        if (!p.stateOfOriginImageUrl) return `${label}: please upload the state of origin certificate image.`;
+        if (!p.declarationOfAgeImageUrl) return `${label}: please upload the declaration of age image.`;
+      }
+    }
+    return null;
   }
 
   async function handleBookingSubmit(e: React.FormEvent) {
@@ -149,13 +218,27 @@ export default function PackageDetailPage() {
       return;
     }
 
+    const validationError = validatePilgrims();
+    if (validationError) {
+      setBookingError(validationError);
+      return;
+    }
+
     try {
       const result = await createBooking({
         variables: {
           input: {
             packageId: params.id,
             numberOfPilgrims,
-            pilgrimDetails: pilgrims,
+            pilgrimDetails: pilgrims.map((p) => ({
+              name: p.name,
+              phoneNumber: p.phoneNumber,
+              hasPassport: p.hasPassport,
+              passportImageUrl: p.passportImageUrl || null,
+              ninImageUrl: p.ninImageUrl || null,
+              stateOfOriginImageUrl: p.stateOfOriginImageUrl || null,
+              declarationOfAgeImageUrl: p.declarationOfAgeImageUrl || null,
+            })),
           },
         },
       });
@@ -204,7 +287,7 @@ export default function PackageDetailPage() {
     setUploadingReceipt(true);
 
     try {
-      const receiptUrl = await uploadReceiptToCloudinary(receiptFile);
+      const receiptUrl = await uploadToCloudinary(receiptFile);
       await submitBankTransferProof({
         variables: { bookingId: newBookingId, receiptUrl },
       });
@@ -242,12 +325,13 @@ export default function PackageDetailPage() {
   const pkg = data.package;
   const isBookable = pkg.availabilityStatus === "open";
   const hasImages = pkg.images && pkg.images.length > 0;
+  const anyUploading = uploadingField !== null;
 
   return (
     <div className="min-h-screen bg-cream px-4 py-12">
       <div className="max-w-2xl mx-auto">
-        <Link href="/packages" className="text-navy text-sm font-medium">
-          ← Back to packages
+        <Link href="/packages" className="text-navy text-bold font-medium">
+           Back to packages
         </Link>
 
         <div className="bg-white rounded-lg shadow-lg overflow-hidden mt-6">
@@ -371,31 +455,158 @@ export default function PackageDetailPage() {
                 />
 
                 {pilgrims.map((pilgrim, i) => (
-                  <div key={i} className="mb-4 pb-4 border-b border-navy-deep/5 last:border-0">
-                    <p className="text-xs font-medium text-navy-deep/60 mb-2">
+                  <div key={i} className="mb-6 pb-6 border-b border-navy-deep/5 last:border-0">
+                    <p className="text-xs font-semibold text-navy-deep/60 uppercase tracking-wide mb-3">
                       Pilgrim {i + 1}
                     </p>
+
                     <input
                       placeholder="Full name"
                       value={pilgrim.name}
-                      onChange={(e) => updatePilgrim(i, "name", e.target.value)}
+                      onChange={(e) => updatePilgrimField(i, "name", e.target.value)}
                       required
                       className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-2"
                     />
+
                     <input
-                      placeholder="Passport number"
-                      value={pilgrim.passportNumber}
-                      onChange={(e) => updatePilgrim(i, "passportNumber", e.target.value)}
+                      placeholder="Phone number (11 digits)"
+                      value={pilgrim.phoneNumber}
+                      onChange={(e) => handlePhoneChange(i, e.target.value)}
+                      inputMode="numeric"
+                      maxLength={11}
                       required
-                      className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-2"
+                      className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-3 font-mono"
                     />
-                    <input
-                      type="date"
-                      value={pilgrim.dateOfBirth}
-                      onChange={(e) => updatePilgrim(i, "dateOfBirth", e.target.value)}
+
+                    <label className="block text-bold font-medium text-navy-deep mb-1">
+                      Do you have an international passport?
+                    </label>
+                    <select
+                      value={
+                        pilgrim.hasPassport === null
+                          ? ""
+                          : pilgrim.hasPassport
+                          ? "yes"
+                          : "no"
+                      }
+                      onChange={(e) =>
+                        updatePilgrimField(
+                          i,
+                          "hasPassport",
+                          e.target.value === "yes" ? true : e.target.value === "no" ? false : null
+                        )
+                      }
                       required
-                      className="w-full border border-navy-deep/20 rounded px-3 py-2"
-                    />
+                      className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-3"
+                    >
+                      <option value="" disabled>
+                        Select an option
+                      </option>
+                      <option value="yes">Yes, I have a passport</option>
+                      <option value="no">No, I don't have one yet</option>
+                    </select>
+
+                    {pilgrim.hasPassport === true && (
+                      <div className="mb-2">
+                        <label className="block text-sm font-medium text-navy-deep mb-1">
+                          Passport data page (clear photo)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) =>
+                            handleDocumentUpload(i, "passportImageUrl", e.target.files?.[0])
+                          }
+                          className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-1 text-sm"
+                        />
+                        {uploadingField === `${i}-passportImageUrl` && (
+                          <p className="text-xs text-navy-deep/50">Uploading...</p>
+                        )}
+                        {pilgrim.passportImageUrl && (
+                          <img
+                            src={pilgrim.passportImageUrl}
+                            alt="Passport preview"
+                            className="h-24 rounded border border-navy-deep/10 mt-1 object-cover"
+                          />
+                        )}
+                      </div>
+                    )}
+
+                    {pilgrim.hasPassport === false && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-navy-deep mb-1">
+                            NIN (clear photo)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              handleDocumentUpload(i, "ninImageUrl", e.target.files?.[0])
+                            }
+                            className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-1 text-sm"
+                          />
+                          {uploadingField === `${i}-ninImageUrl` && (
+                            <p className="text-xs text-navy-deep/50">Uploading...</p>
+                          )}
+                          {pilgrim.ninImageUrl && (
+                            <img
+                              src={pilgrim.ninImageUrl}
+                              alt="NIN preview"
+                              className="h-24 rounded border border-navy-deep/10 mt-1 object-cover"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-navy-deep mb-1">
+                            State of origin certificate (clear photo)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              handleDocumentUpload(i, "stateOfOriginImageUrl", e.target.files?.[0])
+                            }
+                            className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-1 text-sm"
+                          />
+                          {uploadingField === `${i}-stateOfOriginImageUrl` && (
+                            <p className="text-xs text-navy-deep/50">Uploading...</p>
+                          )}
+                          {pilgrim.stateOfOriginImageUrl && (
+                            <img
+                              src={pilgrim.stateOfOriginImageUrl}
+                              alt="State of origin preview"
+                              className="h-24 rounded border border-navy-deep/10 mt-1 object-cover"
+                            />
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-navy-deep mb-1">
+                            Declaration of age (clear photo)
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                              handleDocumentUpload(i, "declarationOfAgeImageUrl", e.target.files?.[0])
+                            }
+                            className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-1 text-sm"
+                          />
+                          {uploadingField === `${i}-declarationOfAgeImageUrl` && (
+                            <p className="text-xs text-navy-deep/50">Uploading...</p>
+                          )}
+                          {pilgrim.declarationOfAgeImageUrl && (
+                            <img
+                              src={pilgrim.declarationOfAgeImageUrl}
+                              alt="Declaration of age preview"
+                              className="h-24 rounded border border-navy-deep/10 mt-1 object-cover"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
 
@@ -405,10 +616,14 @@ export default function PackageDetailPage() {
 
                 <button
                   type="submit"
-                  disabled={booking}
+                  disabled={booking || anyUploading}
                   className="w-full bg-navy hover:bg-navy-deep text-white font-medium rounded py-3 disabled:opacity-50"
                 >
-                  {booking ? "Submitting..." : "Continue"}
+                  {booking
+                    ? "Submitting..."
+                    : anyUploading
+                    ? "Waiting for upload..."
+                    : "Continue"}
                 </button>
               </form>
             )}
