@@ -78,8 +78,9 @@ function LoginContent() {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
         });
-        if (syncResult && syncResult.data && syncResult.data.syncUser) {
-          redirectAfterLogin(syncResult.data.syncUser.role);
+        if (syncResult?.data) {
+          const data = syncResult.data as SyncUserResponse;
+          redirectAfterLogin(data.syncUser?.role);
         } else {
           setError("Failed to load account data. Please try again.");
         }
@@ -105,8 +106,9 @@ function LoginContent() {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
         });
-        if (syncResult && syncResult.data && syncResult.data.syncUser) {
-          redirectAfterLogin(syncResult.data.syncUser.role);
+        if (syncResult?.data) {
+          const data = syncResult.data as SyncUserResponse;
+          redirectAfterLogin(data.syncUser?.role);
         } else {
           setError("Failed to load account data. Please try again.");
         }
