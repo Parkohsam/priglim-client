@@ -255,8 +255,12 @@ export default function PackageDetailPage() {
         },
       });
 
-      setNewBookingId(result.data.createBooking.id);
-      setStep("choosePayment");
+      if (result.data?.createBooking?.id) {
+        setNewBookingId(result.data.createBooking.id);
+        setStep("choosePayment");
+      } else {
+        setBookingError("Failed to create booking. Please try again.");
+      }
     } catch (err) {
       setBookingError(
         err instanceof Error ? err.message : "Failed to create booking."
@@ -272,7 +276,11 @@ export default function PackageDetailPage() {
       const paymentResult = await initializePayment({
         variables: { bookingId: newBookingId },
       });
-      window.location.href = paymentResult.data.initializePayment.authorizationUrl;
+      if (paymentResult && paymentResult.data && paymentResult.data.initializePayment?.authorizationUrl) {
+        window.location.href = paymentResult.data.initializePayment.authorizationUrl;
+      } else {
+        setBookingError("Failed to initialize payment. Please try again.");
+      }
     } catch (err: any) {
       const isReauthRequired = err?.graphQLErrors?.some(
         (gqlErr: any) => gqlErr?.extensions?.code === "REAUTH_REQUIRED"

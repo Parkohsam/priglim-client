@@ -16,6 +16,31 @@ interface Package {
   availabilityStatus: string;
 }
 
+interface CreatePackageResponse {
+  createPackage: Package;
+}
+
+interface CreatePackageVariables {
+  input: any;
+}
+
+interface SetPackageAvailabilityResponse {
+  setPackageAvailability: { id: string; availabilityStatus: string };
+}
+
+interface SetPackageAvailabilityVariables {
+  id: string;
+  availabilityStatus: string;
+}
+
+interface DeletePackageResponse {
+  deletePackage: boolean;
+}
+
+interface DeletePackageVariables {
+  id: string;
+}
+
 // Cloudinary — same unsigned direct-from-browser upload used for
 // bank transfer receipts. No backend involved for the upload itself.
 const CLOUDINARY_CLOUD_NAME = "dlcq2g3cu";
@@ -41,9 +66,9 @@ async function uploadImageToCloudinary(file: File): Promise<string> {
 
 function AdminPackagesContent() {
   const { data, loading, refetch } = useQuery<{ packages: Package[] }>(GET_PACKAGES);
-  const [createPackage, { loading: creating }] = useMutation(CREATE_PACKAGE);
-  const [setAvailability] = useMutation(SET_PACKAGE_AVAILABILITY);
-  const [deletePackage] = useMutation(DELETE_PACKAGE);
+  const [createPackage, { loading: creating }] = useMutation<CreatePackageResponse, CreatePackageVariables>(CREATE_PACKAGE);
+  const [setAvailability] = useMutation<SetPackageAvailabilityResponse, SetPackageAvailabilityVariables>(SET_PACKAGE_AVAILABILITY);
+  const [deletePackage] = useMutation<DeletePackageResponse, DeletePackageVariables>(DELETE_PACKAGE);
 
   const [form, setForm] = useState({
     title: "",

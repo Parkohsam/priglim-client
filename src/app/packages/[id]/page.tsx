@@ -74,6 +74,43 @@ interface PilgrimForm {
   declarationOfAgeImageUrl: string;
 }
 
+interface CreateBookingResponse {
+  createBooking: {
+    id: string;
+    numberOfPilgrims: number;
+    totalAmount: number;
+    status: string;
+    paymentStatus: string;
+  };
+}
+
+interface CreateBookingVariables {
+  input: any;
+}
+
+interface InitializePaymentResponse {
+  initializePayment: {
+    authorizationUrl: string;
+    reference: string;
+  };
+}
+
+interface InitializePaymentVariables {
+  bookingId: string;
+}
+
+interface SubmitBankTransferProofResponse {
+  submitBankTransferProof: {
+    id: string;
+    status: string;
+  };
+}
+
+interface SubmitBankTransferProofVariables {
+  bookingId: string;
+  receiptUrl: string;
+}
+
 const EMPTY_PILGRIM: PilgrimForm = {
   name: "",
   phoneNumber: "",
@@ -127,9 +164,9 @@ export default function PackageDetailPage() {
     GET_PACKAGE,
     { variables: { id: params.id } }
   );
-  const [createBooking, { loading: booking }] = useMutation(CREATE_BOOKING);
-  const [initializePayment, { loading: initializingPayment }] = useMutation(INITIALIZE_PAYMENT);
-  const [submitBankTransferProof, { loading: submittingProof }] = useMutation(SUBMIT_BANK_TRANSFER_PROOF);
+  const [createBooking, { loading: booking }] = useMutation<CreateBookingResponse, CreateBookingVariables>(CREATE_BOOKING);
+  const [initializePayment, { loading: initializingPayment }] = useMutation<InitializePaymentResponse, InitializePaymentVariables>(INITIALIZE_PAYMENT);
+  const [submitBankTransferProof, { loading: submittingProof }] = useMutation<SubmitBankTransferProofResponse, SubmitBankTransferProofVariables>(SUBMIT_BANK_TRANSFER_PROOF);
 
   const [showForm, setShowForm] = useState(false);
   const [step, setStep] = useState<BookingStep>("form");
@@ -243,8 +280,12 @@ export default function PackageDetailPage() {
         },
       });
 
-      setNewBookingId(result.data.createBooking.id);
-      setStep("choosePayment");
+      if (result.data?.createBooking?.id) {
+        setNewBookingId(result.data.createBooking.id);
+        setStep("choosePayment");
+      } else {
+        setBookingError("Failed to create booking. Please try again.");
+      }
     } catch (err) {
       setBookingError(
         err instanceof Error ? err.message : "Failed to create booking."
@@ -260,7 +301,11 @@ export default function PackageDetailPage() {
       const paymentResult = await initializePayment({
         variables: { bookingId: newBookingId },
       });
-      window.location.href = paymentResult.data.initializePayment.authorizationUrl;
+      if (paymentResult && paymentResult.data && paymentResult.data.initializePayment?.authorizationUrl) {
+        window.location.href = paymentResult.data.initializePayment.authorizationUrl;
+      } else {
+        setBookingError("Failed to initialize payment. Please try again.");
+      }
     } catch (err: any) {
       const isReauthRequired = err?.graphQLErrors?.some(
         (gqlErr: any) => gqlErr?.extensions?.code === "REAUTH_REQUIRED"

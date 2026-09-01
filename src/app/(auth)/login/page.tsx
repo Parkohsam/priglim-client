@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState,  Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
@@ -12,6 +12,24 @@ import { auth } from "@/lib/firebaseClient";
 import { useMutation } from "@apollo/client/react";
 import { SYNC_USER } from "@/graphql/mutations";
 import Link from "next/link";
+
+interface SyncUserResponse {
+  syncUser: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+  };
+}
+
+interface SyncUserVariables {
+  fullName: string;
+  phone?: string;
+}
+
+interface MutationResult {
+  data: SyncUserResponse | undefined;
+}
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -38,7 +56,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [syncUser] = useMutation(SYNC_USER);
+  const [syncUser] = useMutation<SyncUserResponse, SyncUserVariables>(SYNC_USER);
 
   function redirectAfterLogin(role: string | undefined) {
     const redirectTo = searchParams.get("redirect");
@@ -59,7 +77,7 @@ export default function LoginPage() {
       try {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
-        });
+        }) as MutationResult;
         redirectAfterLogin(syncResult.data?.syncUser?.role);
       } catch {
         setError(
@@ -82,7 +100,7 @@ export default function LoginPage() {
       try {
         const syncResult = await syncUser({
           variables: { fullName: result.user.displayName || "Priglim User" },
-        });
+        }) as MutationResult;
         redirectAfterLogin(syncResult.data?.syncUser?.role);
       } catch {
         setError(

@@ -58,12 +58,36 @@ interface Booking {
   user: { fullName: string; email: string } | null;
 }
 
+interface ApproveBankTransferPaymentResponse {
+  approveBankTransferPayment: {
+    id: string;
+    status: string;
+    paymentStatus: string;
+  };
+}
+
+interface ApproveBankTransferPaymentVariables {
+  bookingId: string;
+}
+
+interface RejectBankTransferPaymentResponse {
+  rejectBankTransferPayment: {
+    id: string;
+    status: string;
+  };
+}
+
+interface RejectBankTransferPaymentVariables {
+  bookingId: string;
+  reason?: string;
+}
+
 function PaymentsContent() {
   const { data, loading, error, refetch } = useQuery<{ allBookings: Booking[] }>(
     GET_PENDING_REVIEWS
   );
-  const [approvePayment, { loading: approving }] = useMutation(APPROVE_PAYMENT);
-  const [rejectPayment, { loading: rejecting }] = useMutation(REJECT_PAYMENT);
+  const [approvePayment, { loading: approving }] = useMutation<ApproveBankTransferPaymentResponse, ApproveBankTransferPaymentVariables>(APPROVE_PAYMENT);
+  const [rejectPayment, { loading: rejecting }] = useMutation<RejectBankTransferPaymentResponse, RejectBankTransferPaymentVariables>(REJECT_PAYMENT);
   const [actioningId, setActioningId] = useState<string | null>(null);
 
   const pendingReviews = (data?.allBookings ?? []).filter(

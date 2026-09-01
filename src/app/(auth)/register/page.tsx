@@ -8,6 +8,24 @@ import { useMutation } from "@apollo/client/react";
 import { SYNC_USER } from "@/graphql/mutations";
 import Link from "next/link";
 
+interface SyncUserResponse {
+  syncUser: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+  };
+}
+
+interface SyncUserVariables {
+  fullName: string;
+  phone?: string;
+}
+
+interface MutationResult {
+  data: SyncUserResponse | undefined;
+}
+
 const googleProvider = new GoogleAuthProvider();
 
 function getFirebaseErrorMessage(err: unknown): string {
@@ -31,7 +49,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [syncUser] = useMutation(SYNC_USER);
+  const [syncUser] = useMutation<SyncUserResponse, SyncUserVariables>(SYNC_USER);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
