@@ -41,26 +41,21 @@ interface DeletePackageVariables {
   id: string;
 }
 
-// Cloudinary — same unsigned direct-from-browser upload used for
-// bank transfer receipts. No backend involved for the upload itself.
-const CLOUDINARY_CLOUD_NAME = "dlcq2g3cu";
-const CLOUDINARY_UPLOAD_PRESET = "nszjzbjf";
+// Cloudinary — TODO: migrate to server-signed upload. Uses env vars and validates file.
+const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dlcq2g3cu";
+const CLOUDINARY_UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "nszjzbjf";
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 async function uploadImageToCloudinary(file: File): Promise<string> {
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("File too large — max 5MB.");
+  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed.");
   const formData = new FormData();
   formData.append("file", file);
   formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
-
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-    { method: "POST", body: formData }
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to upload image. Please try again.");
-  }
-
+  const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: "POST", body: formData });
+  if (!response.ok) throw new Error("Failed to upload image. Please try again.");
   const data = await response.json();
+  if (!data.secure_url || !String(data.secure_url).includes("res.cloudinary.com")) throw new Error("Invalid upload response.");
   return data.secure_url;
 }
 

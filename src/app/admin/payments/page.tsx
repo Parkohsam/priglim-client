@@ -125,10 +125,7 @@ function PaymentsContent() {
     <div className="min-h-screen bg-cream px-4 py-12">
       <div className="max-w-5xl mx-auto">
         <h1 className="text-2xl font-bold text-navy-deep mb-2">Payments</h1>
-        <p className="text-navy-deep/60 text-sm mb-8">
-          Bank transfer payments awaiting manual review. Paystack payments confirm
-          automatically and never appear here.
-        </p>
+        <p className="text-navy-deep/60 text-sm mb-8">Bank transfer payments awaiting manual review.</p>
 
         {loading && <p className="text-navy-deep/60">Loading...</p>}
         {error && <p className="text-red text-sm">Failed to load payments.</p>}

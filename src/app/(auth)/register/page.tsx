@@ -60,6 +60,14 @@ function RegisterContent() {
       setError("Please enter your full name.");
       return;
     }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+    if (password.length > 128) {
+      setError("Password must be at most 128 characters.");
+      return;
+    }
 
     setLoading(true);
 
@@ -164,7 +172,8 @@ function RegisterContent() {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"
             required
-            maxLength={8}
+            minLength={8}
+            maxLength={128}
             className="w-full border border-navy-deep/20 rounded px-3 py-2 mb-6 text-navy-deep focus:outline-none focus:ring-2 focus:ring-navy"
           />
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import AdminGuard from "@/components/AdminGuard";
@@ -102,8 +102,8 @@ function BookingsContent() {
               </thead>
               <tbody>
                 {data?.allBookings.map((booking) => (
-                  <>
-                    <tr key={booking.id} className="border-b border-navy-deep/5 last:border-0">
+                  <React.Fragment key={booking.id}>
+                    <tr className="border-b border-navy-deep/5 last:border-0">
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="font-medium text-navy-deep">
                           {booking.user?.fullName ?? "Deleted user"}
@@ -153,7 +153,7 @@ function BookingsContent() {
                       </td>
                     </tr>
                     {expandedId === booking.id && (
-                      <tr className="bg-cream/50 border-b border-navy-deep/5">
+                      <tr className="bg-cream/50 border-b border-navy-deep/5" key={`${booking.id}-details`}>
                         <td colSpan={9} className="px-4 py-4">
                           <p className="text-xs font-semibold text-navy-deep/60 uppercase tracking-wide mb-2">
                             Pilgrim details
@@ -235,7 +235,7 @@ function BookingsContent() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
