@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import {createUserWithEmailAndPassword,signInWithPopup,GoogleAuthProvider,AuthError,} from "firebase/auth";
 import { auth } from "@/lib/firebaseClient";
@@ -42,7 +42,7 @@ function getFirebaseErrorMessage(err: unknown): string {
   }
 }
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -200,5 +200,13 @@ export default function RegisterPage() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
   );
 }
