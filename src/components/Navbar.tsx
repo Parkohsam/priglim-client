@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
+import logo from "../app/image/Logo.png";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "firebase/auth";
@@ -21,8 +23,15 @@ export default function Navbar() {
     <header className="bg-white border-b border-navy-deep/10 sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link href="/" className="font-bold text-navy-deep text-lg">
-              ABC
+          <Link href="/" className="flex items-center">
+            <Image
+              src={logo}
+              alt="ABC Travels, Logistics and Forwarding"
+              width={48}
+              height={48}
+              className="h-12 w-12 object-contain"
+              priority
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
