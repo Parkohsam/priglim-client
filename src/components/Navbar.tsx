@@ -27,8 +27,8 @@ export default function Navbar() {
             <Image
               src={logo}
               alt="ABC Travels, Logistics and Forwarding"
-              width={48}
-              height={48}
+              width={60}
+              height={50}
               className="h-12 w-12 object-contain"
               priority
             />
