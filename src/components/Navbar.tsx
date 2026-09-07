@@ -22,7 +22,7 @@ export default function Navbar() {
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           <Link href="/" className="font-bold text-navy-deep text-lg">
-            Priglim
+            Abc Travels Logistics And Forwarding Nig Ltd
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
